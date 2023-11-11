@@ -1,10 +1,12 @@
 import { OpenAIApi, Configuration } from "openai";
 import fs, { write } from "fs";
-import path from "path"
+import path from "path";
+
+import capture from "./src/plugins/capture.js"
 
 import { configDotenv } from "dotenv";
 
-configDotenv({path:"/opt/ai/.env"})
+configDotenv({ path: ".env" });
 
 // // load api secrets
 const apiKey = process.env.OPENAI_API_KEY;
@@ -27,23 +29,29 @@ if (apiKey.length > 0) {
   ];
 
   // parse request file
-  const reqfile = path.join(dir, process.env.AI_REQUEST);
+  const readfile = path.join(dir, process.env.AI_READ);
 
   // do not take not existing import json file
-  let isFile = fs.lstatSync(reqfile).isFile();
+  let isFile = fs.lstatSync(readfile).isFile();
   if (isFile) {
     // parse docs to capture
-    const request = JSON.parse(fs.readFileSync(reqfile));
+    const read = JSON.parse(fs.readFileSync(readfile));
 
     // retrieve files array
-    const { prompt } = request;
+    const { list } = read;
+
+    // console.log(list)
 
     // initate the messages array
     const messages = [];
 
-    if (prompt.length > 0) {
-      messages.push({ role: "user", content: prompt });
-    }
+    list.forEach((document) => {
+      let content = capture(document);
+      console.log(content)
+      messages.push({ role: "user", content });
+    });
+
+    // console.log(messages)
 
     // prepare the gpt model for the biggest context to generate the code;
     let model = "gpt-3.5-turbo-16k";
@@ -51,17 +59,17 @@ if (apiKey.length > 0) {
     // prepare char count
     let charcount = 0;
 
-    // loop messages
-    messages.forEach((message) => {
-      // get char count for message
-      let charsInMessage = Object.values(message)[1].length;
-      // sum the chars
-      charcount += charsInMessage;
-    });
-    // exit count chars in messages loop
+    // // loop messages
+    // messages.forEach((message) => {
+    //   // get char count for message
+    //   let charsInMessage = Object.values(message)[1].length;
+    //   // sum the chars
+    //   charcount += charsInMessage;
+    // });
+    // // exit count chars in messages loop
 
-    // calculate tokens needed for input
-    const tokens = Math.ceil(charcount / 4);
+    // // calculate tokens needed for input
+    // const tokens = Math.ceil(charcount / 4);
 
     // // log total chars
     // console.log(`total chars: ${charcount}`);
@@ -69,11 +77,11 @@ if (apiKey.length > 0) {
     // // log needed tokens projection
     // console.log(`tokens: ${tokens}`);
 
-    // set a treshold for not much context
-    if (tokens < 3800) {
-      // use a more budget friendly gpt model if not much context is provided.
-      model = "gpt-3.5-turbo";
-    }
+    // // set a treshold for not much context
+    // if (tokens < 3800) {
+    //   // use a more budget friendly gpt model if not much context is provided.
+    //   model = "gpt-3.5-turbo";
+    // }
 
     const body = {
       model,
@@ -83,55 +91,55 @@ if (apiKey.length > 0) {
     // // visually verify body request
     // console.log(body);
 
-    // record start time
-    const startTime = Date.now();
+    // // record start time
+    // const startTime = Date.now();
 
-    //   call openai gpt-3.5-turbo
-    (async () => {
-      // // visually verify apiKey data
-      // console.log(apiKey)
+    // //   call openai gpt-3.5-turbo
+    // (async () => {
+    //   // // visually verify apiKey data
+    //   // console.log(apiKey)
 
-      // load apiKey
-      const configuration = new Configuration({ apiKey });
+    //   // load apiKey
+    //   const configuration = new Configuration({ apiKey });
 
-      // create openai instance
-      const openai = new OpenAIApi(configuration);
-      try {
-        const completion = await openai.createChatCompletion(body);
+    //   // create openai instance
+    //   const openai = new OpenAIApi(configuration);
+    //   try {
+    //     const completion = await openai.createChatCompletion(body);
 
-        // record stop time
-        const endTime = Date.now();
+    //     // record stop time
+    //     const endTime = Date.now();
 
-        // get the difference btw the start and end time.
-        const diff = endTime - startTime;
+    //     // get the difference btw the start and end time.
+    //     const diff = endTime - startTime;
 
-        // divide that by one thousand because the value it's in miliseconds.
-        const seconds = diff / 1000;
+    //     // divide that by one thousand because the value it's in miliseconds.
+    //     const seconds = diff / 1000;
 
-        // store message from gpt
-        const completion_text = completion.data.choices[0].message.content;
+    //     // store message from gpt
+    //     const completion_text = completion.data.choices[0].message.content;
 
-        // store finish reason
-        const finish = completion.data.choices[0].finish_reason;
+    //     // store finish reason
+    //     const finish = completion.data.choices[0].finish_reason;
 
-        // retrieve token counts
-        const { prompt_tokens, completion_tokens } = completion.data.usage;
+    //     // retrieve token counts
+    //     const { prompt_tokens, completion_tokens } = completion.data.usage;
 
-        const cost =
-          (prompt_tokens / 1000) * 0.0015 + (completion_tokens / 1000) * 0.002;
+    //     const cost =
+    //       (prompt_tokens / 1000) * 0.0015 + (completion_tokens / 1000) * 0.002;
 
-        // log the output directly to console.
-        console.log(completion_text);
-      } catch (error) {
-        if (error.response) {
-          console.log(error.response.status);
-          console.log(error.response.data);
-        } else {
-          console.log(error.message);
-        }
-      }
-    })();
-    // end of openai async call
+    //     // log the output directly to console.
+    //     console.log(completion_text);
+    //   } catch (error) {
+    //     if (error.response) {
+    //       console.log(error.response.status);
+    //       console.log(error.response.data);
+    //     } else {
+    //       console.log(error.message);
+    //     }
+    //   }
+    // })();
+    // // end of openai async call
   }
   // fi validate req.json exists
 }
