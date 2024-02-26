@@ -1,10 +1,10 @@
-import { OpenAIApi, Configuration } from "openai";
+import { OpenAI } from "openai";
 import fs, { write } from "fs";
 import path from "path"
 
 import { configDotenv } from "dotenv";
 
-configDotenv({path:"/opt/ai/.env"})
+configDotenv({ path: "/opt/ai/.env" })
 
 // // load api secrets
 const apiKey = process.env.OPENAI_API_KEY;
@@ -75,10 +75,15 @@ if (apiKey.length > 0) {
       model = "gpt-3.5-turbo";
     }
 
+    // const body = {
+    //   messages: [{ role: 'user', content: 'Say this is a test' }],
+    //   model: 'gpt-3.5-turbo',
+    // };
+
     const body = {
-      model,
       messages,
-    };
+      model
+    }
 
     // // visually verify body request
     // console.log(body);
@@ -86,18 +91,13 @@ if (apiKey.length > 0) {
     // record start time
     const startTime = Date.now();
 
+    const openai = new OpenAI()
+
     //   call openai gpt-3.5-turbo
-    (async () => {
-      // // visually verify apiKey data
-      // console.log(apiKey)
+    async function main() {
 
-      // load apiKey
-      const configuration = new Configuration({ apiKey });
-
-      // create openai instance
-      const openai = new OpenAIApi(configuration);
       try {
-        const completion = await openai.createChatCompletion(body);
+        const chatCompletion = await openai.chat.completions.create(body);
 
         // record stop time
         const endTime = Date.now();
@@ -108,14 +108,14 @@ if (apiKey.length > 0) {
         // divide that by one thousand because the value it's in miliseconds.
         const seconds = diff / 1000;
 
-        // store message from gpt
-        const completion_text = completion.data.choices[0].message.content;
-
         // store finish reason
-        const finish = completion.data.choices[0].finish_reason;
+        const finish = chatCompletion.choices[0].finish_reason;
+
+        // store message from gpt
+        const completion_text = chatCompletion.choices[0].message.content;
 
         // retrieve token counts
-        const { prompt_tokens, completion_tokens } = completion.data.usage;
+        const { prompt_tokens, completion_tokens } = chatCompletion.usage;
 
         const cost =
           (prompt_tokens / 1000) * 0.0015 + (completion_tokens / 1000) * 0.002;
@@ -130,7 +130,8 @@ if (apiKey.length > 0) {
           console.log(error.message);
         }
       }
-    })();
+    }
+    main();
     // end of openai async call
   }
   // fi validate req.json exists
